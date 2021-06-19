@@ -3,6 +3,7 @@ f_x = (2.8 / 3.984) * 160 # find_apriltags defaults to this if not set
 f_y = (2.8 / 2.952) * 120 # find_apriltags defaults to this if not set
 c_x = 160 // 2
 c_y = 120 // 2
+line_range = (31, 101, 100, 20)
 
 import pyb, sensor, image, time
 
@@ -32,9 +33,10 @@ while(True):
     Tx = None
     Ry = None
 
+    #img.draw_rectangle(line_range, color = (255, 0, 0))
     # about line following:
     # https://openmv.io/blogs/news/linear-regression-line-following
-    for l in img.find_line_segments(merge_distance = 20, max_theta_diff = 5):
+    for l in img.find_line_segments(line_range, merge_distance = 20, max_theta_diff = 15):
         x = l.x2() - c_x
         y = l.y2()
         rho = l.rho()
@@ -43,7 +45,7 @@ while(True):
             rho = -rho
         if theta >= 90:
             theta -= 180
-        if y >= 100 and -60 <= x <= 60:
+        if l.magnitude() > 8:
             #img.draw_line(l.line(), color = (255, 0, 0), thickness=1)
             if y > y_max:
                 y_max = y

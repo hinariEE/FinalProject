@@ -169,8 +169,25 @@ void rpc_hw4_3(Arguments *in, Reply *out){
     posCalib();
 }
 
+void finalProject(Arguments *in, Reply *out){
+    double speed = in->getArg<double>();
+    while(1){
+        running = true;
+        Thread t_car;
+        t_car.start(callback(lineFollow, &speed));
+        while(!fresh_apriltag);
+        running = false;
+        t_car.join();
+        car.stopCalib();
+        ThisThread::sleep_for(500ms);
+        posCalib();
+        car.spinDeg(180.0);
+    }
+}
+
 RPCFunction myrpc_hw4_2(&rpc_hw4_2, "hw4_2");
 RPCFunction myrpc_hw4_3(&rpc_hw4_3, "hw4_3");
+RPCFunction myrpc_finalProject(&finalProject, "final");
 
 
 
@@ -197,20 +214,6 @@ int main()
     t_openmv.start(openmvReader);
     t_report.start(replySensor);
 
-    while(1){
-        double speed = 6.0;
-        running = true;
-        Thread t_car;
-        t_car.start(callback(lineFollow, &speed));
-        while(!fresh_apriltag);
-        running = false;
-        t_car.join();
-        car.stopCalib();
-        ThisThread::sleep_for(500ms);
-        posCalib();
-        car.spinDeg(180.0);
-    }
-    /*
     BufferedSerial pc(USBTX, USBRX);
     FILE *devin = fdopen(&pc, "r");
     char buf[128], outbuf[256];
@@ -229,5 +232,4 @@ int main()
         RPC::call(buf, outbuf);
         printf("%s\n", outbuf);
     }
-    */
 }
