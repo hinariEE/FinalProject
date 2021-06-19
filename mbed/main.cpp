@@ -102,6 +102,7 @@ RPCFunction rpcReplySensor(&rpc_replySensor, "replySensor");
 
 
 static volatile bool running;  // for passing signal into `lineFollow()`
+volatile double action;        // correction intensity
 
 void integrator(volatile float *F){
     *F += line_x * 0.01f;  // called per 10 ms
@@ -111,21 +112,20 @@ void lineFollow(double speed){
     volatile float error_I = 0.0f;
     Ticker integ_ticker;
     integ_ticker.attach(callback(integrator, &error_I), 10ms);
+    //while(1){  // for test
     while(fresh_line && running){
-        int Kp = 5;
-        int Ki = 1;
-        int action = -(Kp * line_x + Ki * (int)error_I);
-        if(action >= 180)
-            action = 179;
-        if(action <= -180)
-            action = -179;
+        double Kp = 0.005;
+        double Ki = 0.005;
+        if(error_I >= 50.0f) error_I = 50.0f;
+        else if(error_I <= -50.0f) error_I = -50.0f;
+        action = -(Kp * line_x + Ki * error_I);
 
         double factor;
         if(action >= 0){
-            factor = 1.0 / (1.0 + action / 100.0);
+            factor = 1.0 / (1.0 + action);
         }
         else{
-            factor = -1.0 / (1.0 - action / 100.0);
+            factor = -1.0 / (1.0 - action);
         }
         car.turnCalib(speed, factor);
     }
@@ -169,27 +169,42 @@ void rpc_hw4_3(Arguments *in, Reply *out){
     posCalib();
 }
 
-void finalProject(Arguments *in, Reply *out){
-    double speed = in->getArg<double>();
+void finalProject(double speed){
     while(1){
         running = true;
         Thread t_car;
         t_car.start(callback(lineFollow, &speed));
+        while(action < 0.2);
+        xbee.write("\r\nFinish straight line.\r\n", 27);
         while(!fresh_apriltag);
         running = false;
         t_car.join();
-        car.stopCalib();
+        xbee.write("\r\nFinish half circle.\r\n", 25);
         ThisThread::sleep_for(500ms);
         posCalib();
         car.spinDeg(180.0);
+        xbee.write("\r\nFinish position calibration.\r\n", 34);
+        ThisThread::sleep_for(500ms);
     }
+}
+
+void rpc_finalProject(Arguments *in, Reply *out){
+    double speed = in->getArg<double>();
+    finalProject(speed);
 }
 
 RPCFunction myrpc_hw4_2(&rpc_hw4_2, "hw4_2");
 RPCFunction myrpc_hw4_3(&rpc_hw4_3, "hw4_3");
-RPCFunction myrpc_finalProject(&finalProject, "final");
+RPCFunction myrpc_finalProject(&rpc_finalProject, "final");
 
 
+
+
+EventQueue queue;
+InterruptIn button(USER_BUTTON);
+void button_handler(){
+    queue.call(finalProject, 10);
+}
 
 
 int main()
@@ -214,6 +229,9 @@ int main()
     t_openmv.start(openmvReader);
     t_report.start(replySensor);
 
+    button.rise(&button_handler);
+    queue.dispatch_forever();
+    /*
     BufferedSerial pc(USBTX, USBRX);
     FILE *devin = fdopen(&pc, "r");
     char buf[128], outbuf[256];
@@ -232,4 +250,5 @@ int main()
         RPC::call(buf, outbuf);
         printf("%s\n", outbuf);
     }
+    */
 }
