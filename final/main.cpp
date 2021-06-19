@@ -101,17 +101,17 @@ RPCFunction rpcReplySensor(&rpc_replySensor, "replySensor");
 
 
 
-volatile float error_I = 0.0f;
+static volatile bool running;  // for passing signal into `lineFollow()`
 
-void integrator(){
-    error_I += line_x * 0.01f;  // called per 10 ms
+void integrator(volatile float *F){
+    *F += line_x * 0.01f;  // called per 10 ms
 }
 
 void lineFollow(double speed){
-    error_I = 0.0f;
+    volatile float error_I = 0.0f;
     Ticker integ_ticker;
-    integ_ticker.attach(integrator, 10ms);
-    while(fresh_line){
+    integ_ticker.attach(callback(integrator, &error_I), 10ms);
+    while(fresh_line && running){
         int Kp = 5;
         int Ki = 1;
         int action = -(Kp * line_x + Ki * (int)error_I);
@@ -130,31 +130,11 @@ void lineFollow(double speed){
         car.turnCalib(speed, factor);
     }
     car.stopCalib();
+    integ_ticker.detach();
 }
 
 void lineFollow(double *speed){
-    error_I = 0.0f;
-    Ticker integ_ticker;
-    integ_ticker.attach(integrator, 10ms);
-    while(fresh_line){
-        int Kp = 5;
-        int Ki = 1;
-        int action = -(Kp * line_x + Ki * (int)error_I);
-        if(action >= 180)
-            action = 179;
-        if(action <= -180)
-            action = -179;
-
-        double factor;
-        if(action >= 0){
-            factor = 1.0 / (1.0 + action / 100.0);
-        }
-        else{
-            factor = -1.0 / (1.0 - action / 100.0);
-        }
-        car.turnCalib(*speed, factor);
-    }
-    car.stopCalib();
+    lineFollow(*speed);
 }
 
 void posCalib(){
@@ -181,6 +161,7 @@ void posCalib(){
 }
 
 void rpc_hw4_2(Arguments *in, Reply *out){
+    running = true;
     lineFollow(6.0);
 }
 
@@ -218,10 +199,12 @@ int main()
 
     while(1){
         double speed = 6.0;
+        running = true;
         Thread t_car;
         t_car.start(callback(lineFollow, &speed));
         while(!fresh_apriltag);
-        t_car.terminate();
+        running = false;
+        t_car.join();
         car.stopCalib();
         ThisThread::sleep_for(500ms);
         posCalib();
