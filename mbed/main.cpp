@@ -109,8 +109,8 @@ void integrator(volatile float *F){
 
 void lineFollow(double speed, volatile bool *running){
     volatile float error_I = 0.0f;
-    Ticker integ_ticker;
-    integ_ticker.attach(callback(integrator, &error_I), 10ms);
+    //Ticker integ_ticker;
+    //integ_ticker.attach(callback(integrator, &error_I), 10ms);
     //while(1){  // for test
     while(fresh_line && *running){
         double Kp = 0.03;
@@ -129,7 +129,7 @@ void lineFollow(double speed, volatile bool *running){
         car.turnCalib(speed, factor);
     }
     car.stopCalib();
-    integ_ticker.detach();
+    //integ_ticker.detach();
 }
 
 void posCalib(){
@@ -139,7 +139,7 @@ void posCalib(){
         double dist = pingDist;
         double headingAngle_1 = (double)Ry;
         double dx = dist * sin(headingAngle_1 / 180.0 * 3.141593);
-        double dy = dist * cos(headingAngle_1 / 180.0 * 3.141593) - 15.0;
+        double dy = dist * cos(headingAngle_1 / 180.0 * 3.141593) - 20.0;
         double headingAngle_2 = atan(dx / dy) / 3.141593 * 180.0;
         double path = sqrt(dx * dx + dy * dy);
         ThisThread::sleep_for(100ms);
@@ -152,7 +152,7 @@ void posCalib(){
     }
     if(fresh_apriltag){
         car.faceTarget(Tx);
-        car.parkDistance(pingDist, 15.0f);
+        car.parkDistance(pingDist, 20.0f);
     }
 }
 
@@ -169,19 +169,22 @@ void finalProject(double speed){
     Thread t_car;
     EventQueue q_car;
     t_car.start(callback(&q_car, &EventQueue::dispatch_forever));
-    volatile bool running = true;
+    volatile bool running;
+    Timer timer;
+    bool straight = true;
     while(1){
+        running = true;
         q_car.call(lineFollow, speed, &running);
-        while(abs(action) < 0.6);
+        ThisThread::sleep_for(600ms);
+        while(abs(action) < 0.7);
         xbee.write("\r\nFinish straight line.\r\n", 27);
-        while(abs(action) > 0.5);
-        while(!fresh_apriltag);
+        while(!fresh_apriltag && abs(Ry) < 15);
         running = false;
         xbee.write("\r\nFinish half circle.\r\n", 25);
         ThisThread::sleep_for(500ms);
         posCalib();
         ThisThread::sleep_for(100ms);
-        car.spinDeg(-210.0);
+        car.spinDeg(-200.0);
         xbee.write("\r\nFinish position calibration.\r\n", 34);
         ThisThread::sleep_for(1000ms);
     }

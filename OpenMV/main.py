@@ -45,7 +45,7 @@ while(True):
             rho = -rho
         if theta >= 90:
             theta -= 180
-        if l.magnitude() > 8:
+        if l.magnitude() > 6:
             #img.draw_line(l.line(), color = (255, 0, 0), thickness=1)
             if y > y_max:
                 y_max = y
