@@ -101,21 +101,20 @@ RPCFunction rpcReplySensor(&rpc_replySensor, "replySensor");
 
 
 
-static volatile bool running;  // for passing signal into `lineFollow()`
 volatile double action;        // correction intensity
 
 void integrator(volatile float *F){
     *F += line_x * 0.01f;  // called per 10 ms
 }
 
-void lineFollow(double speed){
+void lineFollow(double speed, volatile bool *running){
     volatile float error_I = 0.0f;
     Ticker integ_ticker;
     integ_ticker.attach(callback(integrator, &error_I), 10ms);
     //while(1){  // for test
-    while(fresh_line && running){
-        double Kp = 0.005;
-        double Ki = 0.005;
+    while(fresh_line && *running){
+        double Kp = 0.03;
+        double Ki = 0.0;
         if(error_I >= 50.0f) error_I = 50.0f;
         else if(error_I <= -50.0f) error_I = -50.0f;
         action = -(Kp * line_x + Ki * error_I);
@@ -133,36 +132,33 @@ void lineFollow(double speed){
     integ_ticker.detach();
 }
 
-void lineFollow(double *speed){
-    lineFollow(*speed);
-}
-
 void posCalib(){
     if(fresh_apriltag){
         car.faceTarget(Tx);
 
+        double dist = pingDist;
         double headingAngle_1 = (double)Ry;
-        double headingAngle_2 = 2.5 * headingAngle_1;
-        if(headingAngle_2 >= 90.0)
-            headingAngle_2 = 80.0;
-        else if(headingAngle_2 <= -90.0)
-            headingAngle_2 = -80.0;
-        double goal_x = pingDist * sin(headingAngle_1 / 180.0 * 3.14);
-        double path = goal_x / sin(headingAngle_2 / 180.0 * 3.14);
+        double dx = dist * sin(headingAngle_1 / 180.0 * 3.141593);
+        double dy = dist * cos(headingAngle_1 / 180.0 * 3.141593) - 15.0;
+        double headingAngle_2 = atan(dx / dy) / 3.141593 * 180.0;
+        double path = sqrt(dx * dx + dy * dy);
+        ThisThread::sleep_for(100ms);
         car.spinDeg(headingAngle_1 - headingAngle_2);
         ThisThread::sleep_for(500ms);
         car.goByCm(path);
-        ThisThread::sleep_for(500ms);
+        ThisThread::sleep_for(1000ms);
         car.spinDeg(headingAngle_2);
+        ThisThread::sleep_for(500ms);
     }
     if(fresh_apriltag){
         car.faceTarget(Tx);
+        car.parkDistance(pingDist, 15.0f);
     }
 }
 
 void rpc_hw4_2(Arguments *in, Reply *out){
-    running = true;
-    lineFollow(6.0);
+    volatile bool running = true;
+    lineFollow(6.0, &running);
 }
 
 void rpc_hw4_3(Arguments *in, Reply *out){
@@ -170,21 +166,24 @@ void rpc_hw4_3(Arguments *in, Reply *out){
 }
 
 void finalProject(double speed){
+    Thread t_car;
+    EventQueue q_car;
+    t_car.start(callback(&q_car, &EventQueue::dispatch_forever));
+    volatile bool running = true;
     while(1){
-        running = true;
-        Thread t_car;
-        t_car.start(callback(lineFollow, &speed));
-        while(action < 0.2);
+        q_car.call(lineFollow, speed, &running);
+        while(abs(action) < 0.6);
         xbee.write("\r\nFinish straight line.\r\n", 27);
+        while(abs(action) > 0.5);
         while(!fresh_apriltag);
         running = false;
-        t_car.join();
         xbee.write("\r\nFinish half circle.\r\n", 25);
         ThisThread::sleep_for(500ms);
         posCalib();
-        car.spinDeg(180.0);
+        ThisThread::sleep_for(100ms);
+        car.spinDeg(-210.0);
         xbee.write("\r\nFinish position calibration.\r\n", 34);
-        ThisThread::sleep_for(500ms);
+        ThisThread::sleep_for(1000ms);
     }
 }
 
@@ -202,10 +201,6 @@ RPCFunction myrpc_finalProject(&rpc_finalProject, "final");
 
 EventQueue queue;
 InterruptIn button(USER_BUTTON);
-void button_handler(){
-    queue.call(finalProject, 10);
-}
-
 
 int main()
 {
@@ -228,27 +223,8 @@ int main()
     Thread t_report;
     t_openmv.start(openmvReader);
     t_report.start(replySensor);
+    //button.rise(queue.event(posCalib));
 
-    button.rise(&button_handler);
+    button.rise(queue.event(finalProject, 8));
     queue.dispatch_forever();
-    /*
-    BufferedSerial pc(USBTX, USBRX);
-    FILE *devin = fdopen(&pc, "r");
-    char buf[128], outbuf[256];
-    while(1){
-        unsigned i;
-        for(i = 0; i < sizeof(buf) - 1; i++){
-            char recv = fgetc(devin);
-            if(recv == '\n'){
-                break;
-            }
-            buf[i] = putchar(recv);
-        }
-        putchar('\n');
-        buf[i++] = '\0';
-        outbuf[0] = '\0';
-        RPC::call(buf, outbuf);
-        printf("%s\n", outbuf);
-    }
-    */
 }

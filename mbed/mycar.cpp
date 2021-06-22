@@ -73,7 +73,7 @@ void mycar::spinDeg(double degree){
     // tuning based on trial-and-error
     double sec = abs(path) / speed + 0.3;
     if(path > 0)
-        sec = sec * 18.0 / 17.0 - 0.119;
+        sec = sec * 18.0 / 17.0;
     auto ms = duration_cast<milliseconds>(duration<double>(sec));
     if(path >= 0){
         spin(speed);
@@ -84,6 +84,23 @@ void mycar::spinDeg(double degree){
     ThisThread::sleep_for(ms);
     stopCalib();
 }
+
+/*void mycar::spinDeg(double degree){
+    double speed = 10.0;
+    double path = degree / 360.0f * 3.141593f * 11.0f;
+
+    // tuning based on trial-and-error
+    double sec = cmToSec(path) * 1.3;
+    auto ms = duration_cast<milliseconds>(duration<double>(sec));
+    if(path >= 0){
+        spin(speed);
+    }
+    else{
+        spin(-speed);
+    }
+    ThisThread::sleep_for(ms);
+    stopCalib();
+}*/
 
 void mycar::rPark(double d1, double d2){
                // wheel-car spacing: 1.5 cm
@@ -110,7 +127,7 @@ void mycar::faceTarget(volatile int &x_offset){
     bool converging = false;
 
     while(1){
-        car.spin(-x_offset / 10.0);
+        car.spin(-x_offset / 7.0);
         if(!converging){
             if(abs(x_offset) < 6){
                 timer.start();
@@ -124,6 +141,34 @@ void mycar::faceTarget(volatile int &x_offset){
                 break;
             }
             if(abs(x_offset) >= 6){
+                timer.stop();
+                timer.reset();
+                converging = false;
+            }
+        }
+    }
+    car.stopCalib();
+}
+
+void mycar::parkDistance(volatile float &dist, float goal){
+    Timer timer;
+    bool converging = false;
+
+    while(1){
+        car.goStraightCalib(0.3f * (dist - goal));  // Kp
+        if(!converging){
+            if(abs(dist - goal) < 3.0f){  // tolerance: 3 cm
+                timer.start();
+                converging = true;
+            }
+        }
+        else{
+            if(timer.elapsed_time().count() > 1000000){
+                timer.stop();
+                timer.reset();
+                break;
+            }
+            if(abs(dist - goal) >= 3.0f){
                 timer.stop();
                 timer.reset();
                 converging = false;

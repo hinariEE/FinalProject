@@ -73,7 +73,7 @@ void xbee_init(){
     }
     char xbee_reply[4];
     xbee.set_baud(9600);
-    xbee.write("+++", 3);
+    /*xbee.write("+++", 3);
     reply_messange(xbee_reply, "enter AT mode");
     xbee.write("ATMY 0x220\r", 11);
     reply_messange(xbee_reply, "setting MY : 0x220");
@@ -88,7 +88,7 @@ void xbee_init(){
     xbee.write("ATDL\r", 5);
     check_addr(xbee_reply, "DL");
     xbee.write("ATCN\r", 5);
-    reply_messange(xbee_reply, "exit AT mode");
+    reply_messange(xbee_reply, "exit AT mode");*/
     while(xbee.readable()) {
         char k;
         xbee.read(&k, 1);

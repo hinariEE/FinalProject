@@ -28,6 +28,8 @@ public:
 
     void faceTarget(volatile int &x_offset);
 
+    void parkDistance(volatile float &dist, float goal);
+
     void lineFollow(double speed, volatile int &x_offset);
 };
 
