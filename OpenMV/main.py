@@ -36,7 +36,7 @@ while(True):
     #img.draw_rectangle(line_range, color = (255, 0, 0))
     # about line following:
     # https://openmv.io/blogs/news/linear-regression-line-following
-    for l in img.find_line_segments(line_range, merge_distance = 20, max_theta_diff = 15):
+    for l in img.find_line_segments(line_range, merge_distance = 0, max_theta_diff = 5):
         x = l.x2() - c_x
         y = l.y2()
         rho = l.rho()
@@ -45,7 +45,7 @@ while(True):
             rho = -rho
         if theta >= 90:
             theta -= 180
-        if l.magnitude() > 6:
+        if l.magnitude() > 3 and abs(theta) <= 80:
             #img.draw_line(l.line(), color = (255, 0, 0), thickness=1)
             if y > y_max:
                 y_max = y
