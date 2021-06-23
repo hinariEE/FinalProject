@@ -113,11 +113,15 @@ void lineFollow(double speed, volatile bool *running){
     //integ_ticker.attach(callback(integrator, &error_I), 10ms);
     //while(1){  // for test
     while(fresh_line && *running){
-        double Kp = 0.03;
+        double Kp = 0.06;
         double Ki = 0.0;
-        if(error_I >= 50.0f) error_I = 50.0f;
-        else if(error_I <= -50.0f) error_I = -50.0f;
-        action = -(Kp * line_x + Ki * error_I);
+        //if(error_I >= 50.0f) error_I = 50.0f;
+        //else if(error_I <= -50.0f) error_I = -50.0f;
+        if(line_x < 20){
+            action = -(Kp * (line_x + 0.02 * line_theta) + Ki * error_I);
+        }else{
+            action = -(Kp * line_x * 0.8);
+        }
 
         double factor;
         if(action >= 0){
@@ -148,11 +152,11 @@ void posCalib(){
         car.goByCm(path);
         ThisThread::sleep_for(1000ms);
         car.spinDeg(headingAngle_2);
-        ThisThread::sleep_for(500ms);
+        ThisThread::sleep_for(1000ms);
     }
     if(fresh_apriltag){
         car.faceTarget(Tx);
-        car.parkDistance(pingDist, 20.0f);
+        //car.parkDistance(pingDist, 22.0f);
     }
 }
 
@@ -178,13 +182,14 @@ void finalProject(double speed){
         ThisThread::sleep_for(600ms);
         while(abs(action) < 0.7);
         xbee.write("\r\nFinish straight line.\r\n", 27);
-        while(!fresh_apriltag && abs(Ry) < 15);
+        while(!fresh_apriltag);
+        ThisThread::sleep_for(500ms);
         running = false;
         xbee.write("\r\nFinish half circle.\r\n", 25);
-        ThisThread::sleep_for(500ms);
+        ThisThread::sleep_for(1000ms);
         posCalib();
         ThisThread::sleep_for(100ms);
-        car.spinDeg(-200.0);
+        car.spinDeg(-180.0);
         xbee.write("\r\nFinish position calibration.\r\n", 34);
         ThisThread::sleep_for(1000ms);
     }
@@ -215,7 +220,7 @@ int main()
     car.setCalibTable(31, pwm_table0, speed_table0, 31, pwm_table0, speed_table1);
     car.stopCalib();
 
-    encoder_ticker.attach(&encoder_control, 10ms);
+    //encoder_ticker.attach(&encoder_control, 10ms);
 
     ping_ticker.attach(&pingMeas, 500ms);
 

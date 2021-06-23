@@ -127,9 +127,9 @@ void mycar::faceTarget(volatile int &x_offset){
     bool converging = false;
 
     while(1){
-        car.spin(-x_offset / 7.0);
+        car.spin(-x_offset / 9.0);
         if(!converging){
-            if(abs(x_offset) < 6){
+            if(abs(x_offset) < 7){
                 timer.start();
                 converging = true;
             }
@@ -140,7 +140,7 @@ void mycar::faceTarget(volatile int &x_offset){
                 timer.reset();
                 break;
             }
-            if(abs(x_offset) >= 6){
+            if(abs(x_offset) >= 7){
                 timer.stop();
                 timer.reset();
                 converging = false;
